@@ -15,7 +15,7 @@ Prompts for a valid api token each time you use it. You can also specify one wit
 
 ### Arguments
 
-- inputGeoJSONFile: A geoJSON feature file. You can use [geoJson](https://geojson.io) to produce valid input, though any well formed geoJson features file should work. See the example.
+- inputGeoJSONFile: Path to a geoJSON feature file. You can use [geoJson](https://geojson.io) to produce valid input, though any well formed geoJson features file should work. See the example.
 - output: The prefix name of the files that will be generated.
 - zoomLevel: the [zoom level](https://docs.mapbox.com/help/glossary/zoom-level/) at which the map will be rendered.
 

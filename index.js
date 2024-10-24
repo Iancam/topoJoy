@@ -6,12 +6,18 @@ const { execSync } = require("child_process");
 dotenv.config({ path: __dirname + "/.env" });
 const { default: readline } = require("readline-promise");
 
-function mergeImages(
-  inputDirectory = "temp",
-  across = 9,
-  output = "vips",
-  extension = ".png"
-) {
+/**
+ * Merges images from a specified input directory into a single output file.
+ *
+ * @param {string} inputDirectory - Directory containing input images. Defaults to "temp".
+ * @param {number} across - Number of images to join across horizontally. Defaults to 9.
+ * @param {string} output - Name of the output file. Defaults to "vips".
+ * @param {string} extension - File extension of the images to merge. Defaults to ".png".
+ *
+ * If the output file already exists, the function logs a cache hit message and returns.
+ * Uses the 'vips arrayjoin' command to merge images based on their filenames' coordinates.
+ */
+function mergeImages(inputDirectory, across, output, extension = ".png") {
   if (fs.existsSync(output))
     return console.log("cache hit for output " + output);
   const files = fs.readdirSync(inputDirectory);
@@ -26,18 +32,39 @@ function mergeImages(
   execSync(command, () => {});
 }
 
-const downloadTile = (dir = "tiles", verbose = false) => ([x, y, zoom]) => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-  const file = `${dir}/${x}x${y}.png`;
-  console.log(x, y);
-  fs.existsSync(file)
-    ? verbose && console.log("cache hit for " + file)
-    : execSync(
-        `curl https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${x}/${y}.pngraw?access_token=${process.env.MBX_TOKEN} --output ${file}`
-      );
-};
+/**
+ * Downloads a tile from the mapbox terrain-rgb tileset at the specified coordinates if it doesn't already exist.
+ *
+ * @param {string} dir - Directory to store the downloaded tile. Defaults to "tiles".
+ * @param {boolean} verbose - If true, logs a message if a tile is already cached. Defaults to false.
+ * @param {number} x - x-coordinate of the tile.
+ * @param {number} y - y-coordinate of the tile.
+ * @param {number} zoom - Zoom level of the tile.
+ */
+const downloadTile =
+  (dir = "tiles", verbose = false) =>
+  ([x, y, zoom]) => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    const file = `${dir}/${x}x${y}.png`;
+    console.log(x, y);
+    fs.existsSync(file)
+      ? verbose && console.log("cache hit for " + file)
+      : execSync(
+          `curl https://api.mapbox.com/v4/mapbox.terrain-rgb/${zoom}/${x}/${y}.pngraw?access_token=${process.env.MBX_TOKEN} --output ${file}`
+        );
+  };
 
-function tilesForFeatures(features, zoom = 13) {
+/**
+ * Finds the tiles and bounding box of a set of features at a given zoom level.
+ * @param {Object} features - GeoJSON feature set.
+ * @param {number} zoom - Zoom level to calculate tiles and bounding box at.
+ * @returns {Object} An object with two properties: tiles and bounds.
+ *   tiles is an array of [x, y, zoom] coordinates of the tiles that cover the features.
+ *   bounds is an object with three properties: box, width, and height.
+ *     box is an array of [x0, y0, x1, y1] coordinates of the bounding box of the tiles.
+ *     width and height are the dimensions of the bounding box.
+ */
+function tilesForFeatures(features, zoom) {
   const limits = { min_zoom: zoom, max_zoom: zoom };
   const tiles = uniqWith(
     features.features.map((f) => cover.tiles(f.geometry, limits)).flat(),
@@ -64,7 +91,16 @@ function tilesForFeatures(features, zoom = 13) {
 
 // const args = {features, tileFolder, output}
 const tileFolder = "temp";
-module.exports.run = async ([input, output, zoom, keep, ...rest]) => {
+/**
+ * Downloads the tiles associated with a set of features at a given zoom level,
+ * stitches them together, and saves them to a file.
+ *
+ * @param {string} input - Path to a GeoJSON feature set file.
+ * @param {string} output - Prefix for the output file name.
+ * @param {number} zoom - Zoom level to generate tiles at.
+ * @returns {Promise<void>}
+ */
+module.exports.run = async ([input, output, zoom, ...rest]) => {
   if (!process.env.MBX_TOKEN || input === "token") {
     const rl = readline.createInterface({
       input: process.stdin,
